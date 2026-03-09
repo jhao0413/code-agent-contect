@@ -1,6 +1,35 @@
 # code-agent-connect
 
+[中文](README.zh-CN.md)
+
 Minimal Telegram bridge for local `claude`, `codex`, and `neovate` CLIs.
+
+## Quick Start
+
+```bash
+# 1. Clone and build
+git clone https://github.com/anthropics/code-agent-connect.git
+cd code-agent-connect
+npm install
+npm run build
+
+# 2. Create config
+mkdir -p ~/.code-agent-contect
+cp config.example.toml ~/.code-agent-contect/config.toml
+# Edit config.toml: fill in bot_token, allowed_user_ids, working_dir
+
+# 3. Verify setup
+node dist/cli.mjs doctor
+
+# 4. Run (foreground)
+node dist/cli.mjs serve
+
+# 5. Or install as background service (auto-restart + boot-time startup)
+node dist/cli.mjs service install
+
+# Linux only: enable startup after reboot
+sudo loginctl enable-linger "$USER"
+```
 
 ## Scope
 
@@ -32,12 +61,6 @@ Copy `config.example.toml` to `~/.code-agent-contect/config.toml` and fill in:
 - `bridge.working_dir`
 - Optional `network.proxy_url` if Telegram or the agent CLIs must go through a proxy
 - Optional `bin` / `model` overrides under `[agents.*]`
-
-The service resolves binaries in this order:
-
-1. `CAC_<AGENT>_BIN` environment variable
-2. `bin` in `config.toml`
-3. `PATH`
 
 If you use a local proxy such as Clash, set:
 

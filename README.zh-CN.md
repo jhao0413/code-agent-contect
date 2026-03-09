@@ -1,6 +1,35 @@
 # code-agent-connect
 
+[English](README.md)
+
 轻量级 Telegram 桥接服务，连接本地 `claude`、`codex` 和 `neovate` CLI。
+
+## 快速开始
+
+```bash
+# 1. 克隆并构建
+git clone https://github.com/anthropics/code-agent-connect.git
+cd code-agent-connect
+npm install
+npm run build
+
+# 2. 创建配置
+mkdir -p ~/.code-agent-contect
+cp config.example.toml ~/.code-agent-contect/config.toml
+# 编辑 config.toml：填写 bot_token、allowed_user_ids、working_dir
+
+# 3. 检查环境
+node dist/cli.mjs doctor
+
+# 4. 前台运行
+node dist/cli.mjs serve
+
+# 5. 或安装为后台服务（自动重启 + 开机自启）
+node dist/cli.mjs service install
+
+# 仅 Linux：启用重启后自动运行
+sudo loginctl enable-linger "$USER"
+```
 
 ## 功能范围
 
@@ -32,12 +61,6 @@
 - `bridge.working_dir`
 - 可选：`network.proxy_url`（Telegram 或 agent CLI 需要走代理时使用）
 - 可选：`[agents.*]` 下的 `bin` / `model` 覆盖配置
-
-二进制文件按以下优先级解析：
-
-1. `CAC_<AGENT>_BIN` 环境变量
-2. `config.toml` 中的 `bin` 配置
-3. `PATH` 查找
 
 如果使用 Clash 等本地代理，设置：
 
