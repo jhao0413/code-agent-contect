@@ -8,8 +8,9 @@ import {
   isWritableDirectory,
   runCommand,
 } from './utils.mjs';
-import { getLingerStatus, LAUNCHD_LABEL } from './service-manager.mjs';
+import { getLingerStatus, getProjectRoot, LAUNCHD_LABEL } from './service-manager.mjs';
 import { resolveAgentBinary } from './config.mjs';
+import { checkForUpdate } from './updater.mjs';
 
 export async function runDoctor(config) {
   const lines = [];
@@ -83,6 +84,15 @@ export async function runDoctor(config) {
     } else {
       push(false, 'systemd linger is enabled', 'loginctl not available');
     }
+  }
+
+  // Update check (informational, does not affect exit code)
+  const projectRoot = getProjectRoot();
+  const updateResult = await checkForUpdate({ projectRoot, stateDir: config.stateDir, force: false });
+  if (updateResult && updateResult.available) {
+    lines.push(`[INFO] Update available: ${updateResult.currentVersion} -> ${updateResult.latestVersion || 'newer version'} (run 'code-agent-connect update')`);
+  } else if (updateResult && !updateResult.available) {
+    lines.push(`[OK]   Version is up to date: ${updateResult.currentVersion}`);
   }
 
   return {

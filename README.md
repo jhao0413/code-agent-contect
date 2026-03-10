@@ -80,6 +80,8 @@ node dist/cli.mjs serve              # Start the bridge (foreground)
 node dist/cli.mjs doctor             # Check config, binaries, Telegram token, and service status
 node dist/cli.mjs service install    # Install as background service (systemd/launchd)
 node dist/cli.mjs service uninstall  # Remove the background service
+node dist/cli.mjs update             # Pull latest changes, rebuild, and restart service if running
+node dist/cli.mjs check-update       # Check if a newer version is available
 ```
 
 ## Telegram commands
@@ -133,6 +135,15 @@ Inspect logs:
 tail -f ~/.local/state/code-agent-connect/stdout.log
 tail -f ~/.local/state/code-agent-connect/stderr.log
 ```
+
+## Updating
+
+```bash
+node dist/cli.mjs check-update   # See if a new version is available
+node dist/cli.mjs update         # Pull, rebuild, and restart the service
+```
+
+`serve` and `doctor` also check for updates automatically (cached for 6 hours).
 
 ## Development
 

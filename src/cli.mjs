@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
 import os from 'node:os';
-import { applyRuntimeEnvironment, defaultLaunchAgentDir, defaultSystemdUserDir, loadConfig } from './config.mjs';
+import { applyRuntimeEnvironment, defaultLaunchAgentDir, defaultStateDir, defaultSystemdUserDir, loadConfig } from './config.mjs';
 import { BridgeService } from './bridge-service.mjs';
 import { StateStore } from './storage.mjs';
 import { runDoctor } from './doctor.mjs';
-import { getLingerStatus, installService, LAUNCHD_LABEL, uninstallService } from './service-manager.mjs';
+import { getLingerStatus, getProjectRoot, installService, isServiceRunning, LAUNCHD_LABEL, restartService, uninstallService } from './service-manager.mjs';
+import { checkForUpdate, formatUpdateNotice, performUpdate } from './updater.mjs';
 
 function printHelp() {
   console.log(
@@ -17,6 +18,8 @@ function printHelp() {
       '  code-agent-connect doctor [--config /path/to/config.toml]',
       '  code-agent-connect service install [--config /path/to/config.toml]',
       '  code-agent-connect service uninstall [--config /path/to/config.toml]',
+      '  code-agent-connect update [--config /path/to/config.toml]',
+      '  code-agent-connect check-update',
     ].join('\n'),
   );
 }
@@ -38,6 +41,20 @@ function parseArguments(argv) {
   return { filtered, configPath };
 }
 
+/**
+ * Try to load config and apply proxy env vars.
+ * Returns the config object if successful, null otherwise (update/check-update can work without config).
+ */
+async function tryLoadConfig(configPath) {
+  try {
+    const config = await loadConfig(configPath);
+    applyRuntimeEnvironment(config);
+    return config;
+  } catch {
+    return null;
+  }
+}
+
 async function main() {
   const { filtered, configPath } = parseArguments(process.argv.slice(2));
   const [command = 'help', subcommand] = filtered;
@@ -50,6 +67,18 @@ async function main() {
   if (command === 'serve') {
     const config = await loadConfig(configPath);
     applyRuntimeEnvironment(config);
+
+    // Non-blocking update check
+    const projectRoot = getProjectRoot();
+    checkForUpdate({ projectRoot, stateDir: config.stateDir }).then((result) => {
+      const notice = formatUpdateNotice(result);
+      if (notice) {
+        console.error(notice);
+      }
+    }).catch(() => {
+      // Silently ignore update check failures
+    });
+
     const store = new StateStore(config.stateDir);
     const bridge = new BridgeService(config, store);
     await bridge.run();
@@ -89,6 +118,41 @@ async function main() {
       await uninstallService({ systemdUserDir: defaultSystemdUserDir() });
       console.log('Removed code-agent-connect.service');
     }
+    return;
+  }
+
+  if (command === 'update') {
+    const config = await tryLoadConfig(configPath);
+    const projectRoot = getProjectRoot();
+    const stateDir = config?.stateDir ?? defaultStateDir();
+
+    const result = await checkForUpdate({ projectRoot, stateDir, force: true });
+    if (!result || !result.available) {
+      console.log('Already up to date.');
+      return;
+    }
+
+    console.log(formatUpdateNotice(result));
+    console.log('');
+    await performUpdate({ projectRoot, stateDir, isServiceRunning, restartService });
+    return;
+  }
+
+  if (command === 'check-update') {
+    const config = await tryLoadConfig(configPath);
+    const projectRoot = getProjectRoot();
+    const stateDir = config?.stateDir ?? defaultStateDir();
+
+    const result = await checkForUpdate({ projectRoot, stateDir, force: true });
+    if (!result) {
+      console.log('Unable to check for updates.');
+      return;
+    }
+    if (!result.available) {
+      console.log(`Already up to date (${result.currentVersion}).`);
+      return;
+    }
+    console.log(formatUpdateNotice(result));
     return;
   }
 

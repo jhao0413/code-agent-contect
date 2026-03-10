@@ -80,6 +80,8 @@ node dist/cli.mjs serve              # 启动桥接服务（前台运行）
 node dist/cli.mjs doctor             # 检查配置、二进制文件、Telegram token 及服务状态
 node dist/cli.mjs service install    # 安装为后台服务（systemd/launchd）
 node dist/cli.mjs service uninstall  # 卸载后台服务
+node dist/cli.mjs update             # 拉取最新代码、重新构建，并在服务运行时自动重启
+node dist/cli.mjs check-update       # 检查是否有新版本
 ```
 
 ## Telegram 命令
@@ -133,6 +135,15 @@ Launch agent 在登录时自动启动（`RunAtLoad` + `KeepAlive`），无需额
 tail -f ~/.local/state/code-agent-connect/stdout.log
 tail -f ~/.local/state/code-agent-connect/stderr.log
 ```
+
+## 更新
+
+```bash
+node dist/cli.mjs check-update   # 查看是否有新版本
+node dist/cli.mjs update         # 拉取、重新构建并重启服务
+```
+
+`serve` 和 `doctor` 也会自动检查更新（缓存 6 小时）。
 
 ## 开发
 

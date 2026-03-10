@@ -9,7 +9,7 @@ import {
   fileExists,
   runCommand,
 } from './utils.mjs';
-import { resolveAgentBinary } from './config.mjs';
+import { defaultLaunchAgentDir as defaultLaunchAgentDirFn, resolveAgentBinary } from './config.mjs';
 
 export const SERVICE_NAME = 'code-agent-connect.service';
 export const LAUNCHD_LABEL = 'com.code-agent-connect';
@@ -253,4 +253,29 @@ export async function uninstallLaunchAgent(config) {
   const plistPath = path.join(config.launchAgentDir, `${LAUNCHD_LABEL}.plist`);
   await runCommand('launchctl', ['unload', plistPath]);
   await fs.rm(plistPath, { force: true });
+}
+
+export async function isServiceRunning() {
+  if (os.platform() === 'darwin') {
+    const result = await runCommand('launchctl', ['list', LAUNCHD_LABEL]);
+    return result.code === 0 && /^\s*"PID"\s*=\s*\d+/m.test(result.stdout);
+  }
+  const result = await runCommand('systemctl', ['--user', 'is-active', SERVICE_NAME]);
+  return result.stdout.trim() === 'active';
+}
+
+export async function restartService() {
+  if (os.platform() === 'darwin') {
+    const plistPath = path.join(defaultLaunchAgentDirFn(), `${LAUNCHD_LABEL}.plist`);
+    await runCommand('launchctl', ['unload', plistPath]);
+    const result = await runCommand('launchctl', ['load', '-w', plistPath]);
+    if (result.code !== 0) {
+      throw new Error(result.stderr.trim() || 'launchctl load failed');
+    }
+    return;
+  }
+  const result = await runCommand('systemctl', ['--user', 'restart', SERVICE_NAME]);
+  if (result.code !== 0) {
+    throw new Error(result.stderr.trim() || 'systemctl restart failed');
+  }
 }
