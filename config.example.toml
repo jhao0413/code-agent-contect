@@ -8,6 +8,8 @@ working_dir = "/home/jhao/Projects"
 reply_chunk_chars = 500
 reply_flush_ms = 1500
 poll_timeout_seconds = 30
+max_input_image_mb = 20
+allow_image_documents = true
 
 [network]
 proxy_url = ""

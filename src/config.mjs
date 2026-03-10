@@ -115,6 +115,8 @@ export async function loadConfig(configPath = defaultConfigPath()) {
   const replyChunkChars = Number(bridge.reply_chunk_chars ?? 500);
   const replyFlushMs = Number(bridge.reply_flush_ms ?? 1500);
   const pollTimeoutSeconds = Number(bridge.poll_timeout_seconds ?? 30);
+  const maxInputImageMb = Number(bridge.max_input_image_mb ?? 20);
+  const allowImageDocuments = bridge.allow_image_documents !== false;
 
   if (!Number.isInteger(replyChunkChars) || replyChunkChars <= 0) {
     throw new Error('bridge.reply_chunk_chars must be a positive integer');
@@ -124,6 +126,9 @@ export async function loadConfig(configPath = defaultConfigPath()) {
   }
   if (!Number.isInteger(pollTimeoutSeconds) || pollTimeoutSeconds <= 0 || pollTimeoutSeconds > 50) {
     throw new Error('bridge.poll_timeout_seconds must be an integer between 1 and 50');
+  }
+  if (!Number.isFinite(maxInputImageMb) || maxInputImageMb <= 0) {
+    throw new Error('bridge.max_input_image_mb must be a positive number');
   }
 
   return {
@@ -141,6 +146,8 @@ export async function loadConfig(configPath = defaultConfigPath()) {
       replyChunkChars,
       replyFlushMs,
       pollTimeoutSeconds,
+      maxInputImageMb,
+      allowImageDocuments,
     },
     network: normalizeNetworkConfig(network),
     agents: {

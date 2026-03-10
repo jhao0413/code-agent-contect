@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { markdownToTelegramHtml } from './markdown.mjs';
 import { streamAgentTurn } from './providers.mjs';
@@ -28,6 +29,16 @@ function unwrapQuotedArg(value) {
   return trimmed;
 }
 
+function mimeToExt(mimeType) {
+  const map = {
+    'image/png': '.png',
+    'image/jpeg': '.jpg',
+    'image/webp': '.webp',
+    'image/gif': '.gif',
+  };
+  return map[mimeType] || '.bin';
+}
+
 function normalizeSessionState(session) {
   session.providerSessionIds = {
     claude: null,
@@ -44,6 +55,85 @@ function normalizeSessionState(session) {
   return session;
 }
 
+const ALLOWED_IMAGE_MIMES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+]);
+
+const DEFAULT_IMAGE_PROMPT = 'Please analyze the attached image and explain what you see.';
+
+/**
+ * Extract image info from a Telegram message, if any.
+ * Returns { fileId, mimeType, fileSize, width, height, sourceName } or null.
+ */
+export function extractImageInfo(message) {
+  // Photo array: pick the largest resolution
+  if (Array.isArray(message.photo) && message.photo.length > 0) {
+    const largest = message.photo.reduce((a, b) =>
+      (b.width * b.height > a.width * a.height ? b : a),
+    );
+    return {
+      fileId: largest.file_id,
+      mimeType: 'image/jpeg', // Telegram always converts photos to JPEG
+      fileSize: largest.file_size || 0,
+      width: largest.width,
+      height: largest.height,
+      sourceName: 'photo',
+    };
+  }
+
+  // Document with image/* MIME
+  if (message.document && typeof message.document.mime_type === 'string') {
+    const mime = message.document.mime_type;
+    if (mime.startsWith('image/')) {
+      return {
+        fileId: message.document.file_id,
+        mimeType: mime,
+        fileSize: message.document.file_size || 0,
+        width: undefined,
+        height: undefined,
+        sourceName: message.document.file_name || 'document',
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Determine if a message contains unsupported media that should be rejected.
+ * Returns a rejection message string, or null if the message is acceptable.
+ */
+export function getUnsupportedMediaRejection(message) {
+  if (message.media_group_id) {
+    return 'Album (multi-image) messages are not supported yet. Please send images one at a time.';
+  }
+  if (message.document && message.document.mime_type && !message.document.mime_type.startsWith('image/')) {
+    return `Unsupported file type: ${message.document.mime_type}. Only image files (PNG, JPEG, WebP, GIF) are accepted.`;
+  }
+  if (message.sticker) {
+    return 'Sticker messages are not supported. Please send a photo or image file.';
+  }
+  if (message.animation) {
+    return 'Animation/GIF messages sent as animations are not supported. Please send the image as a file.';
+  }
+  if (message.video) {
+    return 'Video messages are not supported.';
+  }
+  if (message.voice) {
+    return 'Voice messages are not supported.';
+  }
+  if (message.video_note) {
+    return 'Video note messages are not supported.';
+  }
+  if (message.audio) {
+    return 'Audio messages are not supported.';
+  }
+  return null;
+}
+
 function buildHelpText(config) {
   return [
     'code-agent-connect',
@@ -55,6 +145,12 @@ function buildHelpText(config) {
     `/use <${config.agents.enabled.join('|')}> - Switch active agent`,
     '/set_working_dir <path> - Set the session working directory',
     '/status - Show the current session state',
+    '',
+    'Image support:',
+    '- Send a photo or image file to analyze it (codex agent)',
+    '- Add a caption to use as your prompt, or omit for auto-analysis',
+    '- One image per message; albums are not supported',
+    '- Other agents: use /use codex to switch before sending images',
     '',
     'Any other private message is forwarded to the active agent.',
   ].join('\n');
@@ -149,6 +245,56 @@ export class BridgeService {
     return resolved;
   }
 
+  attachmentsDir() {
+    return path.join(this.config.stateDir, 'attachments');
+  }
+
+  async downloadAttachment(imageInfo) {
+    const fileResult = await this.telegram.getFile(imageInfo.fileId);
+    if (!fileResult.file_path) {
+      throw new Error('Telegram getFile returned no file_path');
+    }
+
+    const turnId = crypto.randomUUID();
+    const ext = path.extname(fileResult.file_path) || mimeToExt(imageInfo.mimeType);
+    const localDir = path.join(this.attachmentsDir(), turnId);
+    const localPath = path.join(localDir, `image${ext}`);
+
+    await this.telegram.downloadFile(fileResult.file_path, localPath);
+
+    // Verify actual file size on disk
+    const maxMb = this.config.bridge.maxInputImageMb ?? 20;
+    const stat = await fs.stat(localPath);
+    if (stat.size > maxMb * 1024 * 1024) {
+      await fs.rm(localDir, { recursive: true, force: true });
+      throw new Error(`Image too large after download (${(stat.size / 1024 / 1024).toFixed(1)} MB). Maximum: ${maxMb} MB.`);
+    }
+
+    return {
+      kind: 'image',
+      mimeType: imageInfo.mimeType,
+      telegramFileId: imageInfo.fileId,
+      localPath,
+      localDir,
+      sourceName: imageInfo.sourceName,
+      width: imageInfo.width,
+      height: imageInfo.height,
+      sizeBytes: stat.size,
+    };
+  }
+
+  async cleanupAttachments(attachments) {
+    for (const att of attachments) {
+      if (att.localDir) {
+        try {
+          await fs.rm(att.localDir, { recursive: true, force: true });
+        } catch {
+          // best-effort cleanup
+        }
+      }
+    }
+  }
+
   async run() {
     await this.store.init();
     await this.syncTelegramCommands();
@@ -201,9 +347,21 @@ export class BridgeService {
       return;
     }
 
-    const text = (message.text || '').trim();
-    if (!text) {
-      await this.sendText(chatId, 'Only text messages are supported in v1.');
+    // Reject known unsupported media types early
+    const rejection = getUnsupportedMediaRejection(message);
+    if (rejection) {
+      await this.sendText(chatId, rejection);
+      return;
+    }
+
+    // Extract image info if present
+    const imageInfo = extractImageInfo(message);
+
+    // Determine text: caption for image messages, text for pure text, or default prompt
+    const text = (message.caption || message.text || '').trim();
+
+    if (!text && !imageInfo) {
+      await this.sendText(chatId, 'Only text and image messages are supported.');
       return;
     }
 
@@ -213,12 +371,48 @@ export class BridgeService {
       this.config.bridge.workingDir,
     );
 
-    if (text.startsWith('/')) {
+    // Commands only from pure text messages (not captions)
+    if (!imageInfo && text.startsWith('/')) {
       await this.handleCommand(chatId, userId, session, text);
       return;
     }
 
-    await this.handlePrompt(chatId, session, text);
+    // Build attachment if we have an image
+    let attachments = [];
+    if (imageInfo) {
+      const maxMb = this.config.bridge.maxInputImageMb ?? 20;
+      const maxBytes = maxMb * 1024 * 1024;
+
+      // Check MIME type
+      if (!ALLOWED_IMAGE_MIMES.has(imageInfo.mimeType)) {
+        await this.sendText(chatId, `Unsupported image format: ${imageInfo.mimeType}. Allowed: PNG, JPEG, WebP, GIF.`);
+        return;
+      }
+
+      // Check allow_image_documents config
+      if (imageInfo.sourceName !== 'photo' && !(this.config.bridge.allowImageDocuments ?? true)) {
+        await this.sendText(chatId, 'Image document uploads are disabled. Please send as a photo.');
+        return;
+      }
+
+      // Check file size (when reported by Telegram)
+      if (imageInfo.fileSize > maxBytes) {
+        await this.sendText(chatId, `Image too large (${(imageInfo.fileSize / 1024 / 1024).toFixed(1)} MB). Maximum: ${maxMb} MB.`);
+        return;
+      }
+
+      try {
+        await this.telegram.sendChatAction(chatId, 'typing');
+        const attachment = await this.downloadAttachment(imageInfo);
+        attachments = [attachment];
+      } catch (error) {
+        await this.sendText(chatId, `Failed to download image: ${toErrorMessage(error)}`);
+        return;
+      }
+    }
+
+    const prompt = text || DEFAULT_IMAGE_PROMPT;
+    await this.handlePrompt(chatId, session, prompt, attachments);
   }
 
   async handleCommand(chatId, userId, session, text) {
@@ -307,12 +501,22 @@ export class BridgeService {
     await this.sendText(chatId, 'Unknown command. Send /help for the supported commands.');
   }
 
-  async handlePrompt(chatId, session, prompt) {
+  async handlePrompt(chatId, session, prompt, attachments = []) {
     normalizeSessionState(session);
     await this.store.appendTranscript(session.id, {
       direction: 'in',
       agent: session.activeAgent,
       text: prompt,
+      ...(attachments.length > 0 && {
+        attachments: attachments.map((a) => ({
+          kind: a.kind,
+          mimeType: a.mimeType,
+          sourceName: a.sourceName,
+          sizeBytes: a.sizeBytes,
+          width: a.width,
+          height: a.height,
+        })),
+      }),
     });
 
     const agent = session.activeAgent;
@@ -378,6 +582,7 @@ export class BridgeService {
         config: this.config,
         agent,
         prompt,
+        attachments,
         workingDir: prepared.workingDir,
         upstreamSessionId: prepared.upstreamSessionId,
       })) {
@@ -407,6 +612,7 @@ export class BridgeService {
       clearInterval(timer);
       clearInterval(typingTimer);
       await flushChain;
+      await this.cleanupAttachments(attachments);
     }
 
     if (finalText) {

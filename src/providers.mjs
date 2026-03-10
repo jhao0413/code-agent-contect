@@ -168,7 +168,7 @@ function buildClaudeArgs(agentConfig, prompt, upstreamSessionId) {
   return args;
 }
 
-function buildCodexArgs(agentConfig, prompt, workingDir, upstreamSessionId) {
+function buildCodexArgs(agentConfig, prompt, workingDir, upstreamSessionId, attachments = []) {
   const args = ['exec'];
   if (upstreamSessionId) {
     args.push('resume', upstreamSessionId);
@@ -177,6 +177,11 @@ function buildCodexArgs(agentConfig, prompt, workingDir, upstreamSessionId) {
   args.push('--json', '--full-auto', '--skip-git-repo-check');
   if (agentConfig.model) {
     args.push('--model', agentConfig.model);
+  }
+  for (const att of attachments) {
+    if (att.kind === 'image' && att.localPath) {
+      args.push('--image', att.localPath);
+    }
   }
   args.push(...agentConfig.extraArgs);
   args.push(prompt);
@@ -217,7 +222,7 @@ function buildOpencodeArgs(agentConfig, prompt, upstreamSessionId) {
   return args;
 }
 
-export function buildCommandSpec(config, agent, prompt, workingDir, upstreamSessionId) {
+export function buildCommandSpec(config, agent, prompt, workingDir, upstreamSessionId, attachments = []) {
   const command = resolveAgentBinary(config, agent);
   if (!command) {
     throw new Error(`Cannot resolve ${agent} binary`);
@@ -228,7 +233,7 @@ export function buildCommandSpec(config, agent, prompt, workingDir, upstreamSess
     return { command, args: buildClaudeArgs(agentConfig, prompt, upstreamSessionId), cwd: workingDir };
   }
   if (agent === 'codex') {
-    return { command, args: buildCodexArgs(agentConfig, prompt, workingDir, upstreamSessionId), cwd: workingDir };
+    return { command, args: buildCodexArgs(agentConfig, prompt, workingDir, upstreamSessionId, attachments), cwd: workingDir };
   }
   if (agent === 'neovate') {
     return { command, args: buildNeovateArgs(agentConfig, prompt, workingDir, upstreamSessionId), cwd: workingDir };
@@ -239,8 +244,20 @@ export function buildCommandSpec(config, agent, prompt, workingDir, upstreamSess
   throw new Error(`Unsupported agent: ${agent}`);
 }
 
-export async function* streamAgentTurn({ config, agent, prompt, workingDir, upstreamSessionId }) {
-  const spec = buildCommandSpec(config, agent, prompt, workingDir, upstreamSessionId);
+const IMAGE_UNSUPPORTED_AGENTS = new Set(['claude', 'neovate', 'opencode']);
+
+export async function* streamAgentTurn({ config, agent, prompt, attachments = [], workingDir, upstreamSessionId }) {
+  const hasImages = attachments.length > 0 && attachments.some((a) => a.kind === 'image');
+
+  if (hasImages && IMAGE_UNSUPPORTED_AGENTS.has(agent)) {
+    yield {
+      type: 'final_text',
+      text: `Image input is not yet supported for ${agent}. Please switch to codex with /use codex to process images.`,
+    };
+    return;
+  }
+
+  const spec = buildCommandSpec(config, agent, prompt, workingDir, upstreamSessionId, attachments);
   const parser = getParser(agent);
   const parserState = {};
 

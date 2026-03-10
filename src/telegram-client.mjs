@@ -1,3 +1,6 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import { runCommand } from './utils.mjs';
 
 const TELEGRAM_MAX_LENGTH = 4096;
@@ -107,6 +110,52 @@ export class TelegramClient {
       chat_id: chatId,
       action,
     });
+  }
+
+  get fileBaseUrl() {
+    // File downloads use https://api.telegram.org/file/bot<token>/
+    return this.baseUrl.replace('/bot', '/file/bot');
+  }
+
+  async getFile(fileId) {
+    return this.call('getFile', { file_id: fileId });
+  }
+
+  async downloadFile(filePath, destinationPath) {
+    const url = `${this.fileBaseUrl}/${filePath}`;
+    await fs.mkdir(path.dirname(destinationPath), { recursive: true });
+
+    if (this.proxyUrl) {
+      return this.downloadFileWithCurl(url, destinationPath);
+    }
+    return this.downloadFileWithFetch(url, destinationPath);
+  }
+
+  async downloadFileWithFetch(url, destinationPath) {
+    const response = await this.fetchImpl(url);
+    if (!response.ok) {
+      throw new Error(`Telegram file download failed with status ${response.status}`);
+    }
+    const fileHandle = await fs.open(destinationPath, 'w');
+    try {
+      await pipeline(response.body, fileHandle.createWriteStream());
+    } finally {
+      await fileHandle.close();
+    }
+  }
+
+  async downloadFileWithCurl(url, destinationPath) {
+    const args = [
+      '-sS',
+      '--max-time', '120',
+      '--proxy', this.proxyUrl,
+      '-o', destinationPath,
+      url,
+    ];
+    const result = await runCommand('curl', args);
+    if (result.code !== 0) {
+      throw new Error(result.stderr.trim() || `curl file download failed with code ${result.code}`);
+    }
   }
 
   async sendMessage(chatId, text, { parseMode } = {}) {
