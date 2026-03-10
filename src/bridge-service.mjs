@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { markdownToTelegramHtml } from './markdown.mjs';
 import { streamAgentTurn } from './providers.mjs';
 import { TelegramClient } from './telegram-client.mjs';
 import { chunkText, expandHomePath, sleep, toErrorMessage } from './utils.mjs';
@@ -102,7 +103,12 @@ export class BridgeService {
 
   async sendText(chatId, text) {
     for (const chunk of chunkText(text, 3500)) {
-      await this.telegram.sendMessage(chatId, chunk);
+      const html = markdownToTelegramHtml(chunk);
+      try {
+        await this.telegram.sendMessage(chatId, html, { parseMode: 'HTML' });
+      } catch {
+        await this.telegram.sendMessage(chatId, chunk);
+      }
     }
   }
 

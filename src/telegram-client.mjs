@@ -109,7 +109,7 @@ export class TelegramClient {
     });
   }
 
-  async sendMessage(chatId, text) {
+  async sendMessage(chatId, text, { parseMode } = {}) {
     if (!text || !text.trim()) {
       return null;
     }
@@ -120,6 +120,7 @@ export class TelegramClient {
       chat_id: chatId,
       text,
       disable_web_page_preview: true,
+      ...(parseMode && { parse_mode: parseMode }),
     });
   }
 }
