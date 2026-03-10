@@ -5,6 +5,7 @@ import {
   parseClaudeLine,
   parseCodexLine,
   parseNeovateLine,
+  parseOpencodeLine,
 } from '../src/providers.mjs';
 
 test('parseClaudeLine handles real stream-json output', () => {
@@ -73,6 +74,7 @@ test('buildCommandSpec uses configured binaries and correct flags', () => {
       claude: { bin: '/bin/claude', model: 'model-a', extraArgs: ['--foo'] },
       codex: { bin: '/bin/codex', model: 'model-b', extraArgs: ['--bar'] },
       neovate: { bin: '/bin/neovate', model: 'model-c', extraArgs: ['--baz'] },
+      opencode: { bin: '/bin/opencode', model: 'model-d', extraArgs: ['--qux'] },
     },
   };
 
@@ -102,4 +104,44 @@ test('buildCommandSpec uses configured binaries and correct flags', () => {
   const neovate = buildCommandSpec(config, 'neovate', 'prompt', '/tmp/work', null);
   assert.equal(neovate.command, '/bin/neovate');
   assert.deepEqual(neovate.args.slice(0, 6), ['-q', '--output-format', 'stream-json', '--approval-mode', 'autoEdit', '--cwd']);
+});
+
+test('parseOpencodeLine handles JSON event stream', () => {
+  const state = {};
+
+  assert.deepEqual(
+    parseOpencodeLine('{"type":"step_start","sessionID":"ses_abc123","part":{"type":"step-start"}}', state),
+    [{ type: 'session_started', sessionId: 'ses_abc123' }],
+  );
+
+  assert.deepEqual(
+    parseOpencodeLine('{"type":"text","sessionID":"ses_abc123","part":{"type":"text","text":"Hello"}}', state),
+    [{ type: 'partial_text', text: 'Hello' }],
+  );
+
+  assert.deepEqual(
+    parseOpencodeLine('{"type":"text","sessionID":"ses_abc123","part":{"type":"text","text":" world"}}', state),
+    [{ type: 'partial_text', text: ' world' }],
+  );
+
+  assert.deepEqual(
+    parseOpencodeLine('{"type":"step_finish","sessionID":"ses_abc123","part":{"type":"step-finish"}}', state),
+    [{ type: 'final_text', text: 'Hello world' }],
+  );
+});
+
+test('buildCommandSpec builds correct opencode args', () => {
+  const config = {
+    agents: {
+      opencode: { bin: '/bin/opencode', model: 'anthropic/claude-sonnet', extraArgs: ['--verbose'] },
+    },
+  };
+
+  const spec = buildCommandSpec(config, 'opencode', 'prompt', '/tmp/work', 'ses_abc');
+  assert.equal(spec.command, '/bin/opencode');
+  assert.deepEqual(spec.args, ['run', '--format', 'json', '--model', 'anthropic/claude-sonnet', '--session', 'ses_abc', '--verbose', 'prompt']);
+  assert.equal(spec.cwd, '/tmp/work');
+
+  const fresh = buildCommandSpec(config, 'opencode', 'prompt', '/tmp/work', null);
+  assert.deepEqual(fresh.args, ['run', '--format', 'json', '--model', 'anthropic/claude-sonnet', '--verbose', 'prompt']);
 });

@@ -2,7 +2,7 @@
 
 [中文](README.zh-CN.md)
 
-Minimal Telegram bridge for local `claude`, `codex`, and `neovate` CLIs.
+Minimal Telegram bridge for local `claude`, `codex`, `neovate`, and `opencode` CLIs.
 
 ## Quick Start
 
@@ -35,7 +35,7 @@ sudo loginctl enable-linger "$USER"
 
 - Telegram private chat only
 - One active logical session per Telegram user
-- Three local agents: `claude`, `codex`, `neovate`
+- Four local agents: `claude`, `codex`, `neovate`, `opencode`
 - Foreground `serve` runtime on macOS and Linux
 - `systemd --user` on Linux and `launchd` on macOS for restart and boot-time startup
 - No webhook, no group chat, no image/file input, no Telegram-side permission buttons
@@ -49,6 +49,7 @@ sudo loginctl enable-linger "$USER"
   - `claude`
   - `codex`
   - `neovate`
+  - `opencode`
 
 Windows is not supported at the moment.
 
@@ -69,7 +70,7 @@ If you use a local proxy such as Clash, set:
 proxy_url = "http://127.0.0.1:7890"
 ```
 
-`serve`, `doctor`, and the generated service (`systemd --user` on Linux, `launchd` on macOS) will then propagate the proxy to Telegram access and to the three agent CLIs.
+`serve`, `doctor`, and the generated service (`systemd --user` on Linux, `launchd` on macOS) will then propagate the proxy to Telegram access and to the agent CLIs.
 
 ## Commands
 
@@ -87,7 +88,7 @@ node dist/cli.mjs service uninstall  # Remove the background service
 - `/help`
 - `/new`
 - `/set_working_dir /path/to/project`
-- `/use claude|codex|neovate`
+- `/use claude|codex|neovate|opencode`
 - `/status`
 
 Any other private text message is sent to the active agent.

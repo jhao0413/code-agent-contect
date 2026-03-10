@@ -9,7 +9,7 @@ import {
   which,
 } from './utils.mjs';
 
-export const VALID_AGENTS = ['claude', 'codex', 'neovate'];
+export const VALID_AGENTS = ['claude', 'codex', 'neovate', 'opencode'];
 
 export function defaultConfigPath() {
   return expandHomePath(process.env.CAC_CONFIG_PATH || '~/.code-agent-contect/config.toml');
@@ -148,6 +148,7 @@ export async function loadConfig(configPath = defaultConfigPath()) {
       claude: normalizeAgentConfig(agents.claude, 'agents.claude'),
       codex: normalizeAgentConfig(agents.codex, 'agents.codex'),
       neovate: normalizeAgentConfig(agents.neovate, 'agents.neovate'),
+      opencode: normalizeAgentConfig(agents.opencode, 'agents.opencode'),
     },
   };
 }

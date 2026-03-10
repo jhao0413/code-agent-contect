@@ -14,7 +14,7 @@ proxy_url = ""
 no_proxy = ""
 
 [agents]
-enabled = ["claude", "codex", "neovate"]
+enabled = ["claude", "codex", "neovate", "opencode"]
 
 [agents.claude]
 bin = "/home/jhao/.local/bin/claude"
@@ -28,5 +28,10 @@ extra_args = []
 
 [agents.neovate]
 bin = "/home/jhao/.nvm/versions/node/v24.6.0/bin/neovate"
+model = ""
+extra_args = []
+
+[agents.opencode]
+bin = "opencode"
 model = ""
 extra_args = []

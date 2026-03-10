@@ -102,6 +102,35 @@ export function parseNeovateLine(line, state = {}) {
   return events;
 }
 
+export function parseOpencodeLine(line, state = {}) {
+  const data = JSON.parse(line);
+  const events = [];
+
+  if (data.type === 'step_start' && data.sessionID) {
+    state.sessionId = data.sessionID;
+    events.push({ type: 'session_started', sessionId: data.sessionID });
+  }
+
+  if (data.type === 'text' && data.part?.type === 'text' && data.part.text) {
+    state.partialText = `${state.partialText || ''}${data.part.text}`;
+    events.push({ type: 'partial_text', text: data.part.text });
+  }
+
+  if (data.type === 'step_finish') {
+    if (state.partialText) {
+      state.finalText = state.partialText;
+      state.emittedFinal = true;
+      events.push({ type: 'final_text', text: state.partialText });
+    }
+  }
+
+  if (data.type === 'error' || data.is_error) {
+    events.push({ type: 'error', message: data.message || data.part?.text || 'OpenCode command failed' });
+  }
+
+  return events;
+}
+
 function getParser(agent) {
   if (agent === 'claude') {
     return parseClaudeLine;
@@ -111,6 +140,9 @@ function getParser(agent) {
   }
   if (agent === 'neovate') {
     return parseNeovateLine;
+  }
+  if (agent === 'opencode') {
+    return parseOpencodeLine;
   }
   throw new Error(`Unsupported agent: ${agent}`);
 }
@@ -172,6 +204,19 @@ function buildNeovateArgs(agentConfig, prompt, workingDir, upstreamSessionId) {
   return args;
 }
 
+function buildOpencodeArgs(agentConfig, prompt, upstreamSessionId) {
+  const args = ['run', '--format', 'json'];
+  if (agentConfig.model) {
+    args.push('--model', agentConfig.model);
+  }
+  if (upstreamSessionId) {
+    args.push('--session', upstreamSessionId);
+  }
+  args.push(...agentConfig.extraArgs);
+  args.push(prompt);
+  return args;
+}
+
 export function buildCommandSpec(config, agent, prompt, workingDir, upstreamSessionId) {
   const command = resolveAgentBinary(config, agent);
   if (!command) {
@@ -187,6 +232,9 @@ export function buildCommandSpec(config, agent, prompt, workingDir, upstreamSess
   }
   if (agent === 'neovate') {
     return { command, args: buildNeovateArgs(agentConfig, prompt, workingDir, upstreamSessionId), cwd: workingDir };
+  }
+  if (agent === 'opencode') {
+    return { command, args: buildOpencodeArgs(agentConfig, prompt, upstreamSessionId), cwd: workingDir };
   }
   throw new Error(`Unsupported agent: ${agent}`);
 }

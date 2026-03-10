@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-轻量级 Telegram 桥接服务，连接本地 `claude`、`codex` 和 `neovate` CLI。
+轻量级 Telegram 桥接服务，连接本地 `claude`、`codex`、`neovate` 和 `opencode` CLI。
 
 ## 快速开始
 
@@ -35,7 +35,7 @@ sudo loginctl enable-linger "$USER"
 
 - 仅支持 Telegram 私聊
 - 每个 Telegram 用户一个活跃会话
-- 三个本地 agent：`claude`、`codex`、`neovate`
+- 四个本地 agent：`claude`、`codex`、`neovate`、`opencode`
 - macOS 和 Linux 上以前台 `serve` 模式运行
 - Linux 上通过 `systemd --user`、macOS 上通过 `launchd` 实现自动重启和开机自启
 - 不支持 webhook、群聊、图片/文件输入、Telegram 端权限按钮
@@ -49,6 +49,7 @@ sudo loginctl enable-linger "$USER"
   - `claude`
   - `codex`
   - `neovate`
+  - `opencode`
 
 暂不支持 Windows。
 
@@ -69,7 +70,7 @@ sudo loginctl enable-linger "$USER"
 proxy_url = "http://127.0.0.1:7890"
 ```
 
-`serve`、`doctor` 及生成的后台服务（Linux 上为 `systemd --user`，macOS 上为 `launchd`）会自动将代理传播到 Telegram 访问和三个 agent CLI。
+`serve`、`doctor` 及生成的后台服务（Linux 上为 `systemd --user`，macOS 上为 `launchd`）会自动将代理传播到 Telegram 访问和 agent CLI。
 
 ## 命令
 
@@ -87,7 +88,7 @@ node dist/cli.mjs service uninstall  # 卸载后台服务
 - `/help`
 - `/new`
 - `/set_working_dir /path/to/project`
-- `/use claude|codex|neovate`
+- `/use claude|codex|neovate|opencode`
 - `/status`
 
 其他私聊文本消息会被发送给当前活跃的 agent。
