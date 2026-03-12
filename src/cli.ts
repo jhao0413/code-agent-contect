@@ -7,6 +7,7 @@ import { StateStore } from './storage.js';
 import { runDoctor } from './doctor.js';
 import { getLingerStatus, getProjectRoot, installService, isServiceRunning, LAUNCHD_LABEL, restartService, uninstallService } from './service-manager.js';
 import { checkForUpdate, formatUpdateNotice, performUpdate } from './updater.js';
+import { runSetup } from './setup.js';
 import type { Config } from './types.js';
 
 function printHelp(): void {
@@ -21,6 +22,7 @@ function printHelp(): void {
       '  code-agent-connect service uninstall [--config /path/to/config.toml]',
       '  code-agent-connect update [--config /path/to/config.toml]',
       '  code-agent-connect check-update',
+      '  code-agent-connect setup',
     ].join('\n'),
   );
 }
@@ -154,6 +156,11 @@ async function main(): Promise<void> {
       return;
     }
     console.log(formatUpdateNotice(result));
+    return;
+  }
+
+  if (command === 'setup') {
+    await runSetup();
     return;
   }
 
