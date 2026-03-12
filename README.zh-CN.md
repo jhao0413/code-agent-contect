@@ -13,19 +13,17 @@ cd code-agent-connect
 npm install
 npm run build
 
-# 2. 创建配置
-mkdir -p ~/.code-agent-contect
-cp config.example.toml ~/.code-agent-contect/config.toml
-# 编辑 config.toml：填写 bot_token、allowed_user_ids、working_dir
+# 2. 交互式配置（生成 ~/.code-agent-contect/config.toml）
+node dist/cli.js setup
 
 # 3. 检查环境
-node dist/cli.mjs doctor
+node dist/cli.js doctor
 
 # 4. 前台运行
-node dist/cli.mjs serve
+node dist/cli.js serve
 
 # 5. 或安装为后台服务（自动重启 + 开机自启）
-node dist/cli.mjs service install
+node dist/cli.js service install
 
 # 仅 Linux：启用重启后自动运行
 sudo loginctl enable-linger "$USER"
@@ -76,12 +74,13 @@ proxy_url = "http://127.0.0.1:7890"
 
 ```bash
 npm run build                        # 编译 TypeScript 到 dist/
-node dist/cli.mjs serve              # 启动桥接服务（前台运行）
-node dist/cli.mjs doctor             # 检查配置、二进制文件、Telegram token 及服务状态
-node dist/cli.mjs service install    # 安装为后台服务（systemd/launchd）
-node dist/cli.mjs service uninstall  # 卸载后台服务
-node dist/cli.mjs update             # 拉取最新代码、重新构建，并在服务运行时自动重启
-node dist/cli.mjs check-update       # 检查是否有新版本
+node dist/cli.js setup               # 交互式配置向导
+node dist/cli.js serve              # 启动桥接服务（前台运行）
+node dist/cli.js doctor             # 检查配置、二进制文件、Telegram token 及服务状态
+node dist/cli.js service install    # 安装为后台服务（systemd/launchd）
+node dist/cli.js service uninstall  # 卸载后台服务
+node dist/cli.js update             # 拉取最新代码、重新构建，并在服务运行时自动重启
+node dist/cli.js check-update       # 检查是否有新版本
 ```
 
 ## Telegram 命令
@@ -108,7 +107,7 @@ node dist/cli.mjs check-update       # 检查是否有新版本
 
 ```bash
 npm run build
-node dist/cli.mjs service install
+node dist/cli.js service install
 ```
 
 ### 仅 Linux
@@ -139,8 +138,8 @@ tail -f ~/.local/state/code-agent-connect/stderr.log
 ## 更新
 
 ```bash
-node dist/cli.mjs check-update   # 查看是否有新版本
-node dist/cli.mjs update         # 拉取、重新构建并重启服务
+node dist/cli.js check-update   # 查看是否有新版本
+node dist/cli.js update         # 拉取、重新构建并重启服务
 ```
 
 `serve` 和 `doctor` 也会自动检查更新（缓存 6 小时）。

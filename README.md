@@ -13,19 +13,17 @@ cd code-agent-connect
 npm install
 npm run build
 
-# 2. Create config
-mkdir -p ~/.code-agent-contect
-cp config.example.toml ~/.code-agent-contect/config.toml
-# Edit config.toml: fill in bot_token, allowed_user_ids, working_dir
+# 2. Interactive setup (creates ~/.code-agent-contect/config.toml)
+node dist/cli.js setup
 
 # 3. Verify setup
-node dist/cli.mjs doctor
+node dist/cli.js doctor
 
 # 4. Run (foreground)
-node dist/cli.mjs serve
+node dist/cli.js serve
 
 # 5. Or install as background service (auto-restart + boot-time startup)
-node dist/cli.mjs service install
+node dist/cli.js service install
 
 # Linux only: enable startup after reboot
 sudo loginctl enable-linger "$USER"
@@ -76,12 +74,13 @@ proxy_url = "http://127.0.0.1:7890"
 
 ```bash
 npm run build                        # Compile TypeScript to dist/
-node dist/cli.mjs serve              # Start the bridge (foreground)
-node dist/cli.mjs doctor             # Check config, binaries, Telegram token, and service status
-node dist/cli.mjs service install    # Install as background service (systemd/launchd)
-node dist/cli.mjs service uninstall  # Remove the background service
-node dist/cli.mjs update             # Pull latest changes, rebuild, and restart service if running
-node dist/cli.mjs check-update       # Check if a newer version is available
+node dist/cli.js setup               # Interactive config setup wizard
+node dist/cli.js serve              # Start the bridge (foreground)
+node dist/cli.js doctor             # Check config, binaries, Telegram token, and service status
+node dist/cli.js service install    # Install as background service (systemd/launchd)
+node dist/cli.js service uninstall  # Remove the background service
+node dist/cli.js update             # Pull latest changes, rebuild, and restart service if running
+node dist/cli.js check-update       # Check if a newer version is available
 ```
 
 ## Telegram commands
@@ -108,7 +107,7 @@ Install the service:
 
 ```bash
 npm run build
-node dist/cli.mjs service install
+node dist/cli.js service install
 ```
 
 ### Linux only
@@ -139,8 +138,8 @@ tail -f ~/.local/state/code-agent-connect/stderr.log
 ## Updating
 
 ```bash
-node dist/cli.mjs check-update   # See if a new version is available
-node dist/cli.mjs update         # Pull, rebuild, and restart the service
+node dist/cli.js check-update   # See if a new version is available
+node dist/cli.js update         # Pull, rebuild, and restart the service
 ```
 
 `serve` and `doctor` also check for updates automatically (cached for 6 hours).
