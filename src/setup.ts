@@ -105,6 +105,9 @@ export async function runSetup(): Promise<void> {
     // Step 4: working directory
     const workingDir = await prompt.ask('Working directory', process.cwd());
 
+    // Step 5: proxy (optional)
+    const proxyUrl = await prompt.ask('Proxy URL (optional, e.g. http://127.0.0.1:7890, leave blank to skip)');
+
     // Build agent bins map
     const agentBins: Record<string, string> = {};
     for (const agent of enabledAgents) {
@@ -114,7 +117,7 @@ export async function runSetup(): Promise<void> {
       }
     }
 
-    // Step 5: summary and write
+    // Step 6: summary and write
     const data: ConfigData = {
       botToken,
       allowedUserIds,
@@ -122,6 +125,7 @@ export async function runSetup(): Promise<void> {
       workingDir,
       enabledAgents,
       agentBins,
+      proxyUrl: proxyUrl || undefined,
     };
 
     const toml = generateConfigToml(data);

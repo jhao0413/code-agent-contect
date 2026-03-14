@@ -13,6 +13,7 @@ export interface ConfigData {
   workingDir: string;
   enabledAgents: string[];
   agentBins: Record<string, string>;
+  proxyUrl?: string;
 }
 
 export function generateConfigToml(data: ConfigData): string {
@@ -24,10 +25,17 @@ export function generateConfigToml(data: ConfigData): string {
     '[bridge]',
     `default_agent = ${tomlString(data.defaultAgent)}`,
     `working_dir = ${tomlString(data.workingDir)}`,
+  ];
+
+  if (data.proxyUrl) {
+    lines.push('', '[network]', `proxy_url = ${tomlString(data.proxyUrl)}`);
+  }
+
+  lines.push(
     '',
     '[agents]',
     `enabled = ${tomlStringArray(data.enabledAgents)}`,
-  ];
+  );
 
   for (const agent of data.enabledAgents) {
     lines.push('', `[agents.${agent}]`);
