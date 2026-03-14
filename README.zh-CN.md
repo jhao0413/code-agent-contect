@@ -7,23 +7,20 @@
 ## 快速开始
 
 ```bash
-# 1. 克隆并构建
-git clone https://github.com/anthropics/code-agent-connect.git
-cd code-agent-connect
-npm install
-npm run build
+# 1. 安装
+npm install -g code-agent-connect
 
 # 2. 交互式配置（生成 ~/.code-agent-contect/config.toml）
-node dist/cli.js setup
+code-agent-connect setup
 
 # 3. 检查环境
-node dist/cli.js doctor
+code-agent-connect doctor
 
 # 4. 前台运行
-node dist/cli.js serve
+code-agent-connect serve
 
-# 5. 或安装为后台服务（自动重启 + 开机自启）
-node dist/cli.js service install
+# 5. 或安装为后台服务（仅 macOS / Linux）
+code-agent-connect service install
 
 # 仅 Linux：启用重启后自动运行
 sudo loginctl enable-linger "$USER"
@@ -34,13 +31,13 @@ sudo loginctl enable-linger "$USER"
 - 仅支持 Telegram 私聊
 - 每个 Telegram 用户一个活跃会话
 - 四个本地 agent：`claude`、`codex`、`neovate`、`opencode`
-- macOS 和 Linux 上以前台 `serve` 模式运行
+- macOS、Linux、Windows 上均支持前台 `serve` 模式
 - Linux 上通过 `systemd --user`、macOS 上通过 `launchd` 实现自动重启和开机自启
 - 不支持 webhook、群聊、图片/文件输入、Telegram 端权限按钮
 
 ## 环境要求
 
-- macOS 或 Linux
+- macOS、Linux 或 Windows 10/11
 - Node.js 20+
 - Telegram bot token
 - 已安装的本地 CLI：
@@ -49,11 +46,11 @@ sudo loginctl enable-linger "$USER"
   - `neovate`
   - `opencode`
 
-暂不支持 Windows。
+> **Windows 说明**：`serve`、`doctor`、`setup`、`check-update` 在 Windows 10/11 + Node.js 20+ 上均可正常使用。`service install/uninstall` 不支持 Windows，可使用 [pm2](https://pm2.keymetrics.io/) 或 [NSSM](https://nssm.cc/) 等第三方工具实现开机自启。
 
 ## 配置
 
-将 `config.example.toml` 复制到 `~/.code-agent-contect/config.toml` 并填写：
+运行 `code-agent-connect setup` 进行交互式配置，或手动创建 `~/.code-agent-contect/config.toml` 并填写：
 
 - `telegram.bot_token`
 - `telegram.allowed_user_ids`
@@ -73,14 +70,12 @@ proxy_url = "http://127.0.0.1:7890"
 ## 命令
 
 ```bash
-npm run build                        # 编译 TypeScript 到 dist/
-node dist/cli.js setup               # 交互式配置向导
-node dist/cli.js serve              # 启动桥接服务（前台运行）
-node dist/cli.js doctor             # 检查配置、二进制文件、Telegram token 及服务状态
-node dist/cli.js service install    # 安装为后台服务（systemd/launchd）
-node dist/cli.js service uninstall  # 卸载后台服务
-node dist/cli.js update             # 拉取最新代码、重新构建，并在服务运行时自动重启
-node dist/cli.js check-update       # 检查是否有新版本
+code-agent-connect setup               # 交互式配置向导
+code-agent-connect serve               # 启动桥接服务（前台运行）
+code-agent-connect doctor              # 检查配置、二进制文件、Telegram token 及服务状态
+code-agent-connect service install     # 安装为后台服务（systemd/launchd，仅 macOS/Linux）
+code-agent-connect service uninstall   # 卸载后台服务
+code-agent-connect check-update        # 检查 npm 上是否有新版本
 ```
 
 ## Telegram 命令
@@ -98,7 +93,7 @@ node dist/cli.js check-update       # 检查是否有新版本
 
 ## 保持运行
 
-`code-agent-connect` 在 macOS 和 Linux 上都是普通的前台 Node 进程。`service install` 会安装后台守护服务，支持自动重启和开机自启：
+`code-agent-connect` 是普通的前台 Node 进程。在 macOS 和 Linux 上，`service install` 会安装后台守护服务，支持自动重启和开机自启：
 
 - **Linux**：`systemd --user` 服务
 - **macOS**：`launchd` launch agent
@@ -106,8 +101,7 @@ node dist/cli.js check-update       # 检查是否有新版本
 安装服务：
 
 ```bash
-npm run build
-node dist/cli.js service install
+code-agent-connect service install
 ```
 
 ### 仅 Linux
@@ -138,15 +132,19 @@ tail -f ~/.local/state/code-agent-connect/stderr.log
 ## 更新
 
 ```bash
-node dist/cli.js check-update   # 查看是否有新版本
-node dist/cli.js update         # 拉取、重新构建并重启服务
+npm update -g code-agent-connect
 ```
-
-`serve` 和 `doctor` 也会自动检查更新（缓存 6 小时）。
 
 ## 开发
 
 ```bash
-npm test
+git clone https://github.com/jhao0413/code-agent-connect.git
+cd code-agent-connect
+npm install
 npm run build
+npm test
+
+# 不全局安装，直接运行
+node dist/cli.js serve
+node dist/cli.js doctor
 ```

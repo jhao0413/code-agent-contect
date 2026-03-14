@@ -7,23 +7,20 @@ Minimal Telegram bridge for local `claude`, `codex`, `neovate`, and `opencode` C
 ## Quick Start
 
 ```bash
-# 1. Clone and build
-git clone https://github.com/anthropics/code-agent-connect.git
-cd code-agent-connect
-npm install
-npm run build
+# 1. Install
+npm install -g code-agent-connect
 
 # 2. Interactive setup (creates ~/.code-agent-contect/config.toml)
-node dist/cli.js setup
+code-agent-connect setup
 
 # 3. Verify setup
-node dist/cli.js doctor
+code-agent-connect doctor
 
 # 4. Run (foreground)
-node dist/cli.js serve
+code-agent-connect serve
 
-# 5. Or install as background service (auto-restart + boot-time startup)
-node dist/cli.js service install
+# 5. Or install as background service — macOS / Linux only
+code-agent-connect service install
 
 # Linux only: enable startup after reboot
 sudo loginctl enable-linger "$USER"
@@ -34,7 +31,7 @@ sudo loginctl enable-linger "$USER"
 - Telegram private chat only
 - One active logical session per Telegram user
 - Four local agents: `claude`, `codex`, `neovate`, `opencode`
-- Foreground `serve` runtime on macOS and Linux
+- Foreground `serve` runtime on macOS, Linux, and Windows
 - `systemd --user` on Linux and `launchd` on macOS for restart and boot-time startup
 - No webhook, no group chat, no image/file input, no Telegram-side permission buttons
 
@@ -49,11 +46,11 @@ sudo loginctl enable-linger "$USER"
   - `neovate`
   - `opencode`
 
-> **Windows note**: `serve`, `doctor`, `setup`, `update`, and `check-update` all work natively on Windows 10/11 with Node.js 20+. The `service install/uninstall` commands are not supported — run `node dist/cli.js serve` directly, or use a third-party process manager such as [pm2](https://pm2.keymetrics.io/) or [NSSM](https://nssm.cc/) for auto-start.
+> **Windows note**: `serve`, `doctor`, `setup`, and `check-update` all work natively on Windows 10/11 with Node.js 20+. The `service install/uninstall` commands are not supported — use a third-party process manager such as [pm2](https://pm2.keymetrics.io/) or [NSSM](https://nssm.cc/) for auto-start.
 
 ## Configure
 
-Copy `config.example.toml` to `~/.code-agent-contect/config.toml` and fill in:
+Run `code-agent-connect setup` for an interactive wizard, or manually create `~/.code-agent-contect/config.toml` and fill in:
 
 - `telegram.bot_token`
 - `telegram.allowed_user_ids`
@@ -73,14 +70,12 @@ proxy_url = "http://127.0.0.1:7890"
 ## Commands
 
 ```bash
-npm run build                        # Compile TypeScript to dist/
-node dist/cli.js setup               # Interactive config setup wizard
-node dist/cli.js serve              # Start the bridge (foreground)
-node dist/cli.js doctor             # Check config, binaries, Telegram token, and service status
-node dist/cli.js service install    # Install as background service (systemd/launchd)
-node dist/cli.js service uninstall  # Remove the background service
-node dist/cli.js update             # Pull latest changes, rebuild, and restart service if running
-node dist/cli.js check-update       # Check if a newer version is available
+code-agent-connect setup               # Interactive config setup wizard
+code-agent-connect serve               # Start the bridge (foreground)
+code-agent-connect doctor              # Check config, binaries, Telegram token, and service status
+code-agent-connect service install     # Install as background service (systemd/launchd — macOS/Linux only)
+code-agent-connect service uninstall   # Remove the background service
+code-agent-connect check-update        # Check if a newer version is available on npm
 ```
 
 ## Telegram commands
@@ -98,7 +93,7 @@ Each Telegram logical session keeps its own working directory. `/set_working_dir
 
 ## Keeping It Running
 
-`code-agent-connect` is a regular foreground Node process on macOS and Linux. `service install` sets up a background daemon that auto-restarts and survives reboot:
+`code-agent-connect` is a regular foreground Node process. On macOS and Linux, `service install` sets up a background daemon that auto-restarts and survives reboot:
 
 - **Linux**: `systemd --user` service
 - **macOS**: `launchd` launch agent
@@ -106,8 +101,7 @@ Each Telegram logical session keeps its own working directory. `/set_working_dir
 Install the service:
 
 ```bash
-npm run build
-node dist/cli.js service install
+code-agent-connect service install
 ```
 
 ### Linux only
@@ -138,15 +132,19 @@ tail -f ~/.local/state/code-agent-connect/stderr.log
 ## Updating
 
 ```bash
-node dist/cli.js check-update   # See if a new version is available
-node dist/cli.js update         # Pull, rebuild, and restart the service
+npm update -g code-agent-connect
 ```
-
-`serve` and `doctor` also check for updates automatically (cached for 6 hours).
 
 ## Development
 
 ```bash
-npm test
+git clone https://github.com/jhao0413/code-agent-connect.git
+cd code-agent-connect
+npm install
 npm run build
+npm test
+
+# Run directly without global install
+node dist/cli.js serve
+node dist/cli.js doctor
 ```
