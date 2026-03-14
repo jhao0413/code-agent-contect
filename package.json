@@ -7,7 +7,7 @@
     "dist"
   ],
   "bin": {
-    "code-agent-connect": "./dist/cli.js"
+    "code-agent-connect": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
